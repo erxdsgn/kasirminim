@@ -1,44 +1,25 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ContactController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\Auth\LoginController;
-
-/*
-|--------------------------------------------------------------------------
-| Halaman depan (public)
-|--------------------------------------------------------------------------
-*/
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('index');
-})->name('home');
-
-Route::post('/contact', [ContactController::class, 'submit'])->name('contact.submit');
-
-Route::view('/portfolio-details', 'portfolio-details')->name('portfolio-details');
-Route::view('/service-details', 'service-details')->name('service-details');
-
-/*
-|--------------------------------------------------------------------------
-| Login / Logout
-|--------------------------------------------------------------------------
-*/
-
-// Hapus baris showLoginForm ini kalau tombol login kamu adalah modal di halaman depan,
-// bukan halaman /login terpisah.
-Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
-
-Route::post('/login', [LoginController::class, 'login'])->name('login.attempt');
-Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
-
-/*
-|--------------------------------------------------------------------------
-| Area Admin / Dashboard (perlu login)
-|--------------------------------------------------------------------------
-*/
-
-Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    return view('welcome');
 });
+
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
+
+Route::get('/admin/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('admin.dashboard');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+require __DIR__.'/auth.php';
