@@ -15,6 +15,7 @@
         <a href="{{ route('kasir.held') }}" @class(['active' => request()->routeIs('kasir.held')])>Ditahan</a>
         <a href="{{ route('kasir.history') }}" @class(['active' => request()->routeIs('kasir.history')])>Riwayat</a>
         <a href="{{ route('kasir.closing') }}" @class(['active' => request()->routeIs('kasir.closing')])>Tutup Kasir</a>
+        <a href="{{ route('products.index') }}" @class(['active' => request()->routeIs('products.*')])>Kelola Produk</a>
     </nav>
 </header>
 

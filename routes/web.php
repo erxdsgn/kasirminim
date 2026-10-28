@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\KasirController;
+use App\Http\Controllers\ProductController; // 1. Import ProductController
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\LaporanController;
 
 // Halaman Depan (Welcome Page)
 Route::get('/', function () {
@@ -35,11 +37,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('tutup', [KasirController::class, 'closing'])->name('closing');
     });
 
+    Route::resource('products', ProductController::class);
+    Route::get('/laporan-pdf', [LaporanController::class, 'generatePDF'])->name('laporan.pdf');
+
     // Profile Routes bawaan Breeze
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Memuat rute autentikasi Breeze (Login, Register, Logout, Reset Password, dll.)
 require __DIR__.'/auth.php';
