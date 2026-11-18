@@ -6,6 +6,11 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Kasir Retail POS</title>
     <link rel="stylesheet" href="{{ asset('css/chasier.css') }}">
+
+    <!-- MIDTRANS SNAP SDK (ACARA 37) -->
+    <script type="text/javascript"
+            src="https://app.sandbox.midtrans.com/snap/snap.js"
+            data-client-key="{{ config('midtrans.clientKey') }}"></script>
 </head>
 <body>
 
@@ -26,7 +31,6 @@
             <a href="{{ route('kasir.held') }}">Ditahan <span class="badge" id="heldCount">{{ $heldCount ?? 0 }}</span></a>
             <a href="{{ route('kasir.history') }}">Riwayat</a>
             <a href="{{ route('kasir.closing') }}">Tutup Kasir</a>
-            <!-- Link Akses Kelola Produk (Acara 29) -->
             <a href="{{ route('products.index') }}" target="_blank">Kelola Produk</a>
         </nav>
 
@@ -222,9 +226,137 @@
             index: "{{ route('kasir.index') }}",
             store: "{{ route('kasir.store') }}",
             hold: "{{ route('kasir.hold') }}",
+            printThermal: "{{ route('kasir.print.thermal') }}",
+            checkout: "{{ route('checkout') }}" // ROUTE ACARA 37
         },
     };
 </script>
 <script src="{{ asset('js/chasier.js') }}"></script>
+
+<script>
+// 1. FUNGSI MEMILIH METODE PEMBAYARAN (MENGAKTIFKAN TOMBOL KLIK)
+function selectPayment(element) {
+    document.querySelectorAll('.payment-method button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    element.classList.add('active');
+}
+
+// 2. FUNGSI PROSES PEMBAYARAN (TUNAI VS MIDTRANS SNAP)
+async function processPayment() {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const discountAmount = parseFloat(document.getElementById('discountAmount')?.value) || 0;
+
+    // Deteksi tombol pembayaran yang aktif
+    const activeMethodBtn = document.querySelector('.payment-method button.active');
+    const paymentMethod = activeMethodBtn ? activeMethodBtn.getAttribute('data-method') : 'tunai';
+
+    // Ambil item belanja dari keranjang
+    let items = [];
+    if (typeof cart !== 'undefined' && Array.isArray(cart) && cart.length > 0) {
+        items = cart.map(item => ({
+            name: item.name || item.nama,
+            qty: item.qty || item.quantity || 1,
+            price: item.price || item.harga || 0
+        }));
+    } else {
+        const rows = document.querySelectorAll('#cartBody tr:not(#emptyRow)');
+        rows.forEach(row => {
+            const name = row.cells[1]?.innerText?.trim();
+            const priceText = row.cells[2]?.innerText?.replace(/[^0-9]/g, '');
+            const qtyInput = row.querySelector('input[type="number"]');
+            const qty = qtyInput ? parseInt(qtyInput.value) : 1;
+
+            if (name && priceText) {
+                items.push({
+                    name: name,
+                    qty: qty,
+                    price: parseFloat(priceText) || 0
+                });
+            }
+        });
+    }
+
+    if (items.length === 0) {
+        alert('Keranjang belanja masih kosong!');
+        return;
+    }
+
+    // Hitung total belanja
+    let totalBelanja = items.reduce((sum, i) => sum + (i.price * i.qty), 0) - discountAmount;
+    if (totalBelanja <= 0) totalBelanja = 1000;
+
+    // PEMBAYARAN MIDTRANS SNAP (QRIS / E-WALLET / DEBIT / KREDIT / TRANSFER)
+    if (['qris', 'ewallet', 'debit', 'kredit', 'transfer'].includes(paymentMethod)) {
+        try {
+            const response = await fetch(window.KASIR.routes.checkout, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({
+                    gross_amount: totalBelanja,
+                    customer_name: "Pelanggan POS"
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.snap_token) {
+                // Munculkan Pop-up Midtrans Snap
+                window.snap.pay(result.snap_token, {
+                    onSuccess: function(res) {
+                        alert('Pembayaran Midtrans Berhasil!');
+                        window.location.reload();
+                    },
+                    onPending: function(res) {
+                        alert('Menunggu Pembayaran Pelanggan...');
+                    },
+                    onError: function(res) {
+                        alert('Pembayaran Midtrans Gagal!');
+                    },
+                    onClose: function() {
+                        alert('Jendela Pembayaran Midtrans Ditutup.');
+                    }
+                });
+            } else {
+                alert('Gagal mendapatkan token Midtrans: ' + (result.message || 'Error Server'));
+            }
+        } catch (error) {
+            console.error('Error Midtrans:', error);
+            alert('Terjadi kesalahan saat menghubungkan ke Midtrans.');
+        }
+        return;
+    }
+
+    // PEMBAYARAN TUNAI (CETAK STRUK THERMAL)
+    try {
+        const response = await fetch(window.KASIR.routes.printThermal, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: JSON.stringify({
+                items: items,
+                diskon: discountAmount
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            alert('Pembayaran Berhasil!\n' + result.message);
+            window.location.reload();
+        } else {
+            alert('Gagal mencetak struk: ' + (result.message || result.error));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan saat memproses pembayaran tunai.');
+    }
+}
+</script>
 </body>
 </html>

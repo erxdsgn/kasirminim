@@ -1,33 +1,58 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title') - Kasir</title>
     <link rel="stylesheet" href="{{ asset('css/kasir-pages.css') }}">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
+
 <body>
 
-<header class="page-header">
-    <div class="brand">TOKO RETAIL MAKMUR</div>
-    <nav>
-        <a href="{{ route('kasir.index') }}">Transaksi Baru</a>
-        <a href="{{ route('kasir.held') }}" @class(['active' => request()->routeIs('kasir.held')])>Ditahan</a>
-        <a href="{{ route('kasir.history') }}" @class(['active' => request()->routeIs('kasir.history')])>Riwayat</a>
-        <a href="{{ route('kasir.closing') }}" @class(['active' => request()->routeIs('kasir.closing')])>Tutup Kasir</a>
-        <a href="{{ route('products.index') }}" @class(['active' => request()->routeIs('products.*')])>Kelola Produk</a>
-    </nav>
-</header>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<main class="page">
-    <h1>@yield('title')</h1>
+        <title>@yield('title') - Kasir</title>
 
-    @if (session('success'))
-        <div class="alert">{{ session('success') }}</div>
-    @endif
+        <link rel="stylesheet" href="{{ asset('css/kasir-pages.css') }}">
 
-    @yield('content')
-</main>
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+        <script>
+            console.log('Layout Blade berhasil dimuat');
+        </script>
+    </head>
+
+    <main class="page">
+        <h1>@yield('title')</h1>
+
+        @if (session('success'))
+            <div class="alert">{{ session('success') }}</div>
+        @endif
+
+        @yield('content')
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!window.Echo) {
+                console.error('Laravel Echo belum berhasil dimuat!');
+                return;
+            }
+            console.log('Laravel Echo berhasil dimuat!');
+            window.Echo.private('user.{{ auth()->id() }}')
+                .listen('.OrderPlaced', (e) => {
+                    console.log('Order Placed:', e);
+                    alert(
+                        `Pesanan baru #${e.order_id} berhasil dibuat oleh ${e.user_name} dengan total Rp ${e.total}`
+                    );
+                });
+        });
+    </script>
 
 </body>
+
 </html>

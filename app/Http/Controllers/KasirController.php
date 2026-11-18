@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use App\Events\OrderPlaced;
 
 class KasirController extends Controller
 {
@@ -34,7 +35,7 @@ class KasirController extends Controller
                 'other_fee'       => $held->other_fee,
                 'items'           => $held->details
                     ->whereNotNull('product_id')
-                    ->map(fn ($d) => ['id' => $d->product_id, 'qty' => $d->qty])
+                    ->map(fn($d) => ['id' => $d->product_id, 'qty' => $d->qty])
                     ->values(),
             ];
 
@@ -61,6 +62,9 @@ class KasirController extends Controller
         $data = $this->validateCart($request);
 
         $transaction = $this->persist($data, 'paid');
+
+        // Panggil event broadcast OrderPlaced di sini
+        event(new OrderPlaced($transaction, Auth::user()));
 
         return response()->json([
             'redirect' => route('kasir.receipt', ['transaction' => $transaction->id, 'print' => 1]),
@@ -181,8 +185,12 @@ class KasirController extends Controller
             'cancelledCount' => Transaction::where('status', 'cancelled')
                 ->whereDate('created_at', now()->toDateString())->count(),
             'methods'        => [
-                'tunai' => 'Tunai', 'qris' => 'QRIS', 'debit' => 'Debit',
-                'kredit' => 'Kredit', 'ewallet' => 'E-Wallet', 'transfer' => 'Transfer',
+                'tunai' => 'Tunai',
+                'qris' => 'QRIS',
+                'debit' => 'Debit',
+                'kredit' => 'Kredit',
+                'ewallet' => 'E-Wallet',
+                'transfer' => 'Transfer',
             ],
         ]);
     }
@@ -217,7 +225,7 @@ class KasirController extends Controller
             // Gabungkan baris dengan produk yang sama
             $qtyById = collect($data['items'])
                 ->groupBy('id')
-                ->map(fn ($rows) => (int) $rows->sum('qty'));
+                ->map(fn($rows) => (int) $rows->sum('qty'));
 
             $products = Product::whereIn('id', $qtyById->keys())
                 ->lockForUpdate()
